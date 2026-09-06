@@ -93,7 +93,67 @@ export const RiderView = ({ user, onOpenWallet }) => {
     }
   };
 
+  const calculateClientFare = (pickupLoc, dropoffLoc) => {
+    if (!pickupLoc?.lat || !dropoffLoc?.lat) return null;
+    const R = 6371;
+    const dLat = ((dropoffLoc.lat - pickupLoc.lat) * Math.PI) / 180;
+    const dLon = ((dropoffLoc.lng - pickupLoc.lng) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((pickupLoc.lat * Math.PI) / 180) *
+        Math.cos((dropoffLoc.lat * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const rawDist = Math.max(0.5, R * c * 1.3);
+    const distanceKm = Math.round(rawDist * 10) / 10;
+    const durationMinutes = Math.max(3, Math.round(distanceKm * 2.5));
+
+    const tiers = [
+      {
+        vehicleType: 'BIKE',
+        displayName: 'Bike Taxi (Rapido style)',
+        fare: Math.round((20 + distanceKm * 8 + durationMinutes * 1.5) * 10) / 10,
+        capacity: 1,
+        etaMinutes: 3,
+        surgeMultiplier: 1.0,
+      },
+      {
+        vehicleType: 'AUTO',
+        displayName: 'Auto Rickshaw',
+        fare: Math.round((30 + distanceKm * 12 + durationMinutes * 2.0) * 10) / 10,
+        capacity: 3,
+        etaMinutes: 5,
+        surgeMultiplier: 1.0,
+      },
+      {
+        vehicleType: 'CAB_ECONOMY',
+        displayName: 'Economy Cab (Mini)',
+        fare: Math.round((50 + distanceKm * 15 + durationMinutes * 2.5) * 10) / 10,
+        capacity: 4,
+        etaMinutes: 6,
+        surgeMultiplier: 1.0,
+      },
+      {
+        vehicleType: 'CAB_PREMIUM',
+        displayName: 'Premium Cab (Sedan/SUV)',
+        fare: Math.round((80 + distanceKm * 20 + durationMinutes * 3.5) * 10) / 10,
+        capacity: 4,
+        etaMinutes: 8,
+        surgeMultiplier: 1.0,
+      },
+    ];
+
+    return { distanceKm, durationMinutes, tiers };
+  };
+
   const calculateFare = async () => {
+    // Provide instantaneous client-side estimation immediately
+    const fallbackEstimate = calculateClientFare(pickup, dropoff);
+    if (fallbackEstimate) {
+      setEstimate((prev) => prev || fallbackEstimate);
+    }
+
     setLoading(true);
     setError('');
     try {
@@ -103,9 +163,17 @@ export const RiderView = ({ user, onOpenWallet }) => {
         dropoffLat: dropoff.lat,
         dropoffLng: dropoff.lng,
       });
-      setEstimate(data);
+      if (data && data.tiers) {
+        setEstimate(data);
+      } else if (fallbackEstimate) {
+        setEstimate(fallbackEstimate);
+      }
     } catch (err) {
-      setError('Could not calculate fare estimate. Please try again.');
+      if (fallbackEstimate) {
+        setEstimate(fallbackEstimate);
+      } else {
+        setError('Could not calculate fare estimate. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

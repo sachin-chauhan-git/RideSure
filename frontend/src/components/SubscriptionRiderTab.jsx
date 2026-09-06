@@ -90,7 +90,67 @@ export const SubscriptionRiderTab = ({ onOpenWallet, walletBalance }) => {
     }
   };
 
+  const calculateClientSubscription = (pickupLoc, dropoffLoc, sDate, eDate, subType, vType) => {
+    if (!pickupLoc?.lat || !dropoffLoc?.lat) return null;
+    const R = 6371;
+    const dLat = ((dropoffLoc.lat - pickupLoc.lat) * Math.PI) / 180;
+    const dLon = ((dropoffLoc.lng - pickupLoc.lng) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((pickupLoc.lat * Math.PI) / 180) *
+        Math.cos((dropoffLoc.lat * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const rawDist = Math.max(0.5, R * c * 1.3);
+    const distanceKm = Math.round(rawDist * 10) / 10;
+    const durationMinutes = Math.max(3, Math.round(distanceKm * 2.5));
+
+    const rates = {
+      BIKE: { base: 20, km: 8, min: 1.5 },
+      AUTO: { base: 30, km: 12, min: 2.0 },
+      CAB_ECONOMY: { base: 50, km: 15, min: 2.5 },
+      CAB_PREMIUM: { base: 80, km: 20, min: 3.5 },
+    };
+    const r = rates[vType] || rates.BIKE;
+    const baseSingleFare = Math.round((r.base + distanceKm * r.km + durationMinutes * r.min) * 10) / 10;
+
+    const start = new Date(sDate);
+    const end = new Date(eDate);
+    const diffDays = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
+    const tripsPerDay = subType === 'ROUND_TRIP' ? 2 : 1;
+    const totalTrips = diffDays * tripsPerDay;
+
+    let discountPercentage = 0;
+    if (diffDays >= 30) discountPercentage = 25;
+    else if (diffDays >= 20) discountPercentage = 20;
+    else if (diffDays >= 10) discountPercentage = 15;
+    else if (diffDays >= 5) discountPercentage = 10;
+
+    const standardTotalCost = Math.round(baseSingleFare * totalTrips * 10) / 10;
+    const discountedPackageCost = Math.round((standardTotalCost * (1 - discountPercentage / 100)) * 10) / 10;
+    const totalSavings = Math.round((standardTotalCost - discountedPackageCost) * 10) / 10;
+    const dailyEffectiveRate = Math.round((discountedPackageCost / diffDays) * 10) / 10;
+
+    return {
+      distanceKm,
+      durationMinutes,
+      baseSingleFare,
+      totalDays: diffDays,
+      totalTrips,
+      discountPercentage,
+      standardTotalCost,
+      discountedPackageCost,
+      totalSavings,
+      dailyEffectiveRate,
+    };
+  };
+
   const calculateEstimate = async () => {
+    const fallback = calculateClientSubscription(pickup, dropoff, startDate, endDate, subscriptionType, vehicleType);
+    if (fallback) {
+      setEstimate((prev) => prev || fallback);
+    }
     setError('');
     try {
       const data = await api.estimateSubscription({
@@ -103,9 +163,17 @@ export const SubscriptionRiderTab = ({ onOpenWallet, walletBalance }) => {
         startDate,
         endDate,
       });
-      setEstimate(data);
+      if (data) {
+        setEstimate(data);
+      } else if (fallback) {
+        setEstimate(fallback);
+      }
     } catch (err) {
-      setError('Could not calculate pass estimate');
+      if (fallback) {
+        setEstimate(fallback);
+      } else {
+        setError('Could not calculate pass estimate');
+      }
     }
   };
 

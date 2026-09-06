@@ -48,6 +48,10 @@ public class SecurityConfig {
                                 "/error",
                                 "/api/health",
                                 "/api/auth/**",
+                                "/api/rides/estimate",
+                                "/api/rides/nearby-drivers",
+                                "/api/subscriptions/estimate",
+                                "/api/subscriptions/all",
                                 "/ws-ride/**",
                                 "/h2-console/**",
                                 "/api/maps/**"
