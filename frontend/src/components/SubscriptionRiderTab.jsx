@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { wsService } from '../services/websocket';
 import { MapComponent } from './MapComponent';
+import { MapPickerModal } from './MapPickerModal';
 import {
   Calendar,
   Clock,
@@ -18,7 +19,9 @@ import {
   XCircle,
   Star,
   MapPin,
-  Navigation
+  Navigation,
+  Map as MapIcon,
+  SlidersHorizontal
 } from 'lucide-react';
 
 const PRESET_LOCATIONS = [
@@ -34,6 +37,9 @@ const PRESET_LOCATIONS = [
 
 export const SubscriptionRiderTab = ({ onOpenWallet, walletBalance }) => {
   const [viewMode, setViewMode] = useState('passes'); // 'passes' or 'new'
+  const [mobileTab, setMobileTab] = useState('booking'); // 'booking' or 'map'
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
+  const [mapPickerTarget, setMapPickerTarget] = useState('pickup');
   const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -441,299 +447,370 @@ export const SubscriptionRiderTab = ({ onOpenWallet, walletBalance }) => {
 
       {/* VIEW 2: BOOKING WIZARD WITH INTEGRATED GREATER NOIDA MAP */}
       {viewMode === 'new' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-[580px]">
-          {/* Left Form Controls */}
-          <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4 overflow-y-auto max-h-[620px]">
-            <div className="border-b border-slate-800 pb-3">
-              <h3 className="text-base font-bold text-white">Book Daily Pass</h3>
-              <p className="text-xs text-slate-400">Configure your daily commute schedule</p>
-            </div>
+        <div className="space-y-3">
+          {/* Mobile / Half-Screen View Tab Switcher (Visible on < lg) */}
+          <div className="flex lg:hidden items-center bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
+            <button
+              type="button"
+              onClick={() => setMobileTab('booking')}
+              className={`flex-1 py-2 rounded-lg font-bold flex items-center justify-center gap-1.5 transition ${
+                mobileTab === 'booking'
+                  ? 'bg-amber-400 text-slate-950 shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Pass Configuration</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab('map')}
+              className={`flex-1 py-2 rounded-lg font-bold flex items-center justify-center gap-1.5 transition ${
+                mobileTab === 'map'
+                  ? 'bg-amber-400 text-slate-950 shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <MapIcon className="w-3.5 h-3.5" />
+              <span>Commute Map</span>
+            </button>
+          </div>
 
-            {/* 1. Trip Direction */}
-            <div>
-              <label className="text-xs font-bold text-slate-300 uppercase mb-1.5 block">1. Direction</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSubscriptionType('ONE_WAY')}
-                  className={`p-2.5 rounded-xl border text-xs font-bold transition flex flex-col items-center gap-0.5 ${
-                    subscriptionType === 'ONE_WAY'
-                      ? 'bg-amber-400/20 border-amber-400 text-amber-300'
-                      : 'bg-slate-800 border-slate-700 text-slate-300'
-                  }`}
-                >
-                  <span>One-Way (Morning Only)</span>
-                  <span className="text-[10px] text-slate-400">1 Trip / Day</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSubscriptionType('ROUND_TRIP')}
-                  className={`p-2.5 rounded-xl border text-xs font-bold transition flex flex-col items-center gap-0.5 ${
-                    subscriptionType === 'ROUND_TRIP'
-                      ? 'bg-amber-400/20 border-amber-400 text-amber-300'
-                      : 'bg-slate-800 border-slate-700 text-slate-300'
-                  }`}
-                >
-                  <span>Round-Trip (Office / College)</span>
-                  <span className="text-[10px] text-slate-400">2 Trips / Day</span>
-                </button>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-[580px]">
+            {/* Left Form Controls */}
+            <div className={`lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xl space-y-4 overflow-y-auto max-h-[700px] ${
+              mobileTab === 'booking' ? 'block' : 'hidden lg:block'
+            }`}>
+              <div className="border-b border-slate-800 pb-3">
+                <h3 className="text-base font-bold text-white">Book Daily Pass</h3>
+                <p className="text-xs text-slate-400">Configure your daily commute schedule</p>
               </div>
-            </div>
 
-            {/* 2. Date Range */}
-            <div>
-              <label className="text-xs font-bold text-slate-300 uppercase mb-1.5 block">2. Duration (Consecutive Days)</label>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] text-slate-400">Start Date</label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    min={todayStr}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-400">End Date</label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    min={startDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
-                  />
-                </div>
-              </div>
-              {estimate && (
-                <p className="text-[11px] text-amber-400 font-semibold mt-1">
-                  📅 {estimate.totalDays} Consecutive Days • {estimate.totalTrips} Total Rides
-                </p>
-              )}
-            </div>
-
-            {/* 3. Time Slots */}
-            <div>
-              <label className="text-xs font-bold text-slate-300 uppercase mb-1.5 block">3. Daily Time Slots</label>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] text-slate-400">Morning Pickup Slot</label>
-                  <input
-                    type="time"
-                    value={outwardTime}
-                    onChange={(e) => setOutwardTime(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
-                  />
-                </div>
-                {subscriptionType === 'ROUND_TRIP' && (
-                  <div>
-                    <label className="text-[10px] text-slate-400">Evening Return Slot</label>
-                    <input
-                      type="time"
-                      value={returnTime}
-                      onChange={(e) => setReturnTime(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* 4. Commute Route Selection */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-300 uppercase block">4. Commute Route</label>
+              {/* 1. Trip Direction */}
               <div>
-                <label className="text-[11px] text-emerald-400 font-semibold">Pickup Location</label>
-                <select
-                  value={pickup.name}
-                  onChange={(e) => {
-                    const l = PRESET_LOCATIONS.find((x) => x.name === e.target.value);
-                    if (l) setPickup(l);
-                  }}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200"
-                >
-                  {PRESET_LOCATIONS.map((l) => (
-                    <option key={l.name} value={l.name}>{l.name}</option>
-                  ))}
-                  {!PRESET_LOCATIONS.some((l) => l.name === pickup.name) && (
-                    <option value={pickup.name}>{pickup.name}</option>
-                  )}
-                </select>
-              </div>
-              <div>
-                <label className="text-[11px] text-rose-400 font-semibold">Dropoff (Destination)</label>
-                <select
-                  value={dropoff.name}
-                  onChange={(e) => {
-                    const l = PRESET_LOCATIONS.find((x) => x.name === e.target.value);
-                    if (l) setDropoff(l);
-                  }}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200"
-                >
-                  {PRESET_LOCATIONS.map((l) => (
-                    <option key={l.name} value={l.name}>{l.name}</option>
-                  ))}
-                  {!PRESET_LOCATIONS.some((l) => l.name === dropoff.name) && (
-                    <option value={dropoff.name}>{dropoff.name}</option>
-                  )}
-                </select>
-              </div>
-            </div>
-
-            {/* 5. Select Vehicle */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-300 uppercase block">5. Vehicle Tier</label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: 'BIKE', name: 'Rapido Bike', icon: <Bike className="w-4 h-4" /> },
-                  { id: 'AUTO', name: 'Auto Rickshaw', icon: <span className="text-sm">🛺</span> },
-                  { id: 'CAB_ECONOMY', name: 'Economy Cab', icon: <Car className="w-4 h-4 text-emerald-400" /> },
-                  { id: 'CAB_PREMIUM', name: 'Sedan / SUV', icon: <Car className="w-4 h-4 text-purple-400" /> },
-                ].map((v) => (
+                <label className="text-xs font-bold text-slate-300 uppercase mb-1.5 block">1. Direction</label>
+                <div className="grid grid-cols-2 gap-2">
                   <button
-                    key={v.id}
                     type="button"
-                    onClick={() => setVehicleType(v.id)}
-                    className={`p-2.5 rounded-xl border text-xs font-bold transition flex items-center gap-2 ${
-                      vehicleType === v.id
-                        ? 'bg-amber-400/20 border-amber-400 text-amber-300 ring-1 ring-amber-400/40'
+                    onClick={() => setSubscriptionType('ONE_WAY')}
+                    className={`p-2.5 rounded-xl border text-xs font-bold transition flex flex-col items-center gap-0.5 ${
+                      subscriptionType === 'ONE_WAY'
+                        ? 'bg-amber-400/20 border-amber-400 text-amber-300 ring-1 ring-amber-400/30'
                         : 'bg-slate-800 border-slate-700 text-slate-300'
                     }`}
                   >
-                    {v.icon}
-                    <span>{v.name}</span>
+                    <span>One-Way (Morning)</span>
+                    <span className="text-[10px] text-slate-400">1 Trip / Day</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSubscriptionType('ROUND_TRIP')}
+                    className={`p-2.5 rounded-xl border text-xs font-bold transition flex flex-col items-center gap-0.5 ${
+                      subscriptionType === 'ROUND_TRIP'
+                        ? 'bg-amber-400/20 border-amber-400 text-amber-300 ring-1 ring-amber-400/30'
+                        : 'bg-slate-800 border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    <span>Round-Trip</span>
+                    <span className="text-[10px] text-slate-400">2 Trips / Day</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. Date Range */}
+              <div>
+                <label className="text-xs font-bold text-slate-300 uppercase mb-1.5 block">2. Duration (Consecutive Days)</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-slate-400">Start Date</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      min={todayStr}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-400">End Date</label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      min={startDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
+                    />
+                  </div>
+                </div>
+                {estimate && (
+                  <p className="text-[11px] text-amber-400 font-semibold mt-1">
+                    📅 {estimate.totalDays} Consecutive Days • {estimate.totalTrips} Total Rides
+                  </p>
+                )}
+              </div>
+
+              {/* 3. Time Slots */}
+              <div>
+                <label className="text-xs font-bold text-slate-300 uppercase mb-1.5 block">3. Daily Time Slots</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-slate-400">Morning Pickup Slot</label>
+                    <input
+                      type="time"
+                      value={outwardTime}
+                      onChange={(e) => setOutwardTime(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
+                    />
+                  </div>
+                  {subscriptionType === 'ROUND_TRIP' && (
+                    <div>
+                      <label className="text-[10px] text-slate-400">Evening Return Slot</label>
+                      <input
+                        type="time"
+                        value={returnTime}
+                        onChange={(e) => setReturnTime(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 4. Commute Route Selection */}
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-300 uppercase block">4. Commute Route</label>
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5" /> Pickup Location
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMapPickerTarget('pickup');
+                        setIsMapPickerOpen(true);
+                      }}
+                      className="text-[11px] px-2.5 py-1 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 rounded-lg font-bold flex items-center gap-1 transition"
+                    >
+                      <MapIcon className="w-3 h-3" /> Select on Map
+                    </button>
+                  </div>
+                  <select
+                    value={pickup.name}
+                    onChange={(e) => {
+                      const l = PRESET_LOCATIONS.find((x) => x.name === e.target.value);
+                      if (l) setPickup(l);
+                    }}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                  >
+                    {PRESET_LOCATIONS.map((l) => (
+                      <option key={l.name} value={l.name}>{l.name}</option>
+                    ))}
+                    {!PRESET_LOCATIONS.some((l) => l.name === pickup.name) && (
+                      <option value={pickup.name}>{pickup.name}</option>
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] text-rose-400 font-semibold flex items-center gap-1">
+                      <Navigation className="w-3.5 h-3.5" /> Dropoff (Destination)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMapPickerTarget('dropoff');
+                        setIsMapPickerOpen(true);
+                      }}
+                      className="text-[11px] px-2.5 py-1 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/40 rounded-lg font-bold flex items-center gap-1 transition"
+                    >
+                      <MapIcon className="w-3 h-3" /> Select on Map
+                    </button>
+                  </div>
+                  <select
+                    value={dropoff.name}
+                    onChange={(e) => {
+                      const l = PRESET_LOCATIONS.find((x) => x.name === e.target.value);
+                      if (l) setDropoff(l);
+                    }}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-rose-500"
+                  >
+                    {PRESET_LOCATIONS.map((l) => (
+                      <option key={l.name} value={l.name}>{l.name}</option>
+                    ))}
+                    {!PRESET_LOCATIONS.some((l) => l.name === dropoff.name) && (
+                      <option value={dropoff.name}>{dropoff.name}</option>
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              {/* 5. Select Vehicle */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-300 uppercase block">5. Vehicle Tier</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'BIKE', name: 'Rapido Bike', icon: <Bike className="w-4 h-4" /> },
+                    { id: 'AUTO', name: 'Auto Rickshaw', icon: <span className="text-sm">🛺</span> },
+                    { id: 'CAB_ECONOMY', name: 'Economy Cab', icon: <Car className="w-4 h-4 text-emerald-400" /> },
+                    { id: 'CAB_PREMIUM', name: 'Sedan / SUV', icon: <Car className="w-4 h-4 text-purple-400" /> },
+                  ].map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => setVehicleType(v.id)}
+                      className={`p-2.5 rounded-xl border text-xs font-bold transition flex items-center gap-2 ${
+                        vehicleType === v.id
+                          ? 'bg-amber-400/20 border-amber-400 text-amber-300 ring-1 ring-amber-400/40'
+                          : 'bg-slate-800 border-slate-700 text-slate-300'
+                      }`}
+                    >
+                      {v.icon}
+                      <span>{v.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Price & Summary Card */}
+              {estimate && (
+                <div className="bg-gradient-to-br from-slate-950 to-slate-900 border border-amber-500/40 rounded-2xl p-4 space-y-2.5 shadow-xl">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2 text-xs">
+                    <span className="text-slate-400">Standard Rate ({estimate.totalTrips} rides):</span>
+                    <span className="line-through text-slate-500 font-mono">₹{estimate.standardTotalCost}</span>
+                  </div>
+
+                  {estimate.discountPercentage > 0 && (
+                    <div className="flex items-center justify-between text-xs text-amber-400 font-bold">
+                      <span className="flex items-center gap-1">
+                        <Zap className="w-3.5 h-3.5 fill-current" /> {estimate.discountPercentage}% Multi-Day Discount:
+                      </span>
+                      <span className="font-black">-₹{estimate.totalSavings}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-800">
+                    <div>
+                      <span className="text-xs uppercase font-bold text-slate-300">Total Pass Package</span>
+                      <p className="text-[10px] text-slate-400">Auto-deducted daily upon ride completion</p>
+                    </div>
+                    <span className="text-xl font-black text-emerald-400">₹{estimate.discountedPackageCost}</span>
+                  </div>
+
+                  <div className="bg-slate-900 p-2 rounded-xl border border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
+                    <span>Effective Daily Cost:</span>
+                    <strong className="text-amber-400 text-xs">₹{estimate.dailyEffectiveRate} / day</strong>
+                  </div>
+
+                  {/* Low Balance Warning */}
+                  {estimate && walletBalance !== null && walletBalance < estimate.discountedPackageCost && (
+                    <div className="p-2.5 bg-amber-500/15 border border-amber-500/40 rounded-xl space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-amber-300 font-bold">Low Wallet Balance:</span>
+                        <span className="text-white font-mono">₹{walletBalance.toFixed(0)} / ₹{estimate.discountedPackageCost}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={onOpenWallet}
+                        className="w-full py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-lg shadow transition"
+                      >
+                        + Top Up Wallet Now
+                      </button>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleCreateSubscription}
+                    disabled={loading || (walletBalance !== null && walletBalance < estimate.discountedPackageCost)}
+                    className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Activating Pass...' : `Confirm & Activate Pass (₹${estimate.discountedPackageCost})`}
+                  </button>
+
+                  {/* View on Map button for mobile */}
+                  <button
+                    type="button"
+                    onClick={() => setMobileTab('map')}
+                    className="w-full lg:hidden py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                  >
+                    <MapIcon className="w-3.5 h-3.5 text-amber-400" />
+                    <span>View Commute Route on Map</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Right Interactive Greater Noida Map */}
+            <div className={`lg:col-span-7 flex-col gap-2 min-h-[440px] ${
+              mobileTab === 'map' ? 'flex' : 'hidden lg:flex'
+            }`}>
+              {/* Quick Landmarks Bar */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+                <span className="text-[10px] uppercase font-bold text-slate-400 shrink-0">Places:</span>
+                {[
+                  { name: 'Pari Chowk', lat: 28.4633, lng: 77.5082, emoji: '🚇' },
+                  { name: 'Expo Mart', lat: 28.4570, lng: 77.5000, emoji: '🏛️' },
+                  { name: 'Sharda Univ', lat: 28.4725, lng: 77.4833, emoji: '🎓' },
+                  { name: 'Venice Mall', lat: 28.4529, lng: 77.5260, emoji: '🛍️' },
+                  { name: 'Alpha 1', lat: 28.4709, lng: 77.5126, emoji: '🏢' },
+                  { name: 'Gaur City', lat: 28.6054, lng: 77.4281, emoji: '🛍️' },
+                  { name: 'GBU Campus', lat: 28.4239, lng: 77.5332, emoji: '🎓' },
+                ].map((p) => (
+                  <button
+                    key={p.name}
+                    type="button"
+                    onClick={() => handleSelectPlace(p)}
+                    className="bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-amber-400/50 px-2.5 py-0.5 rounded-full text-[10px] text-slate-300 hover:text-white shrink-0 flex items-center gap-1 transition shadow"
+                  >
+                    <span>{p.emoji}</span>
+                    <span>{p.name}</span>
                   </button>
                 ))}
               </div>
-            </div>
 
-            {/* Price & Summary Card */}
-            {estimate && (
-              <div className="bg-gradient-to-br from-slate-950 to-slate-900 border border-amber-500/40 rounded-2xl p-4 space-y-2.5 shadow-xl">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-2 text-xs">
-                  <span className="text-slate-400">Standard Rate ({estimate.totalTrips} rides):</span>
-                  <span className="line-through text-slate-500 font-mono">₹{estimate.standardTotalCost}</span>
+              {/* Map Canvas */}
+              <div className="flex-1 min-h-[400px] relative">
+                <MapComponent
+                  center={{ lat: pickup.lat, lng: pickup.lng }}
+                  pickup={pickup}
+                  dropoff={dropoff}
+                  routePolyline={estimate?.routePolyline}
+                  onMapClick={handleMapClick}
+                  onSelectPlace={handleSelectPlace}
+                />
+
+                {/* Back to Schedule floating button on mobile */}
+                <div className="absolute bottom-3 left-3 right-3 lg:hidden z-[1000]">
+                  <button
+                    type="button"
+                    onClick={() => setMobileTab('booking')}
+                    className="w-full py-2.5 bg-slate-900/95 backdrop-blur border border-amber-400/60 text-amber-400 font-bold text-xs rounded-xl shadow-2xl flex items-center justify-center gap-2"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>Back to Pass Configuration (₹{estimate?.discountedPackageCost || '0'})</span>
+                  </button>
                 </div>
-
-                {estimate.discountPercentage > 0 && (
-                  <div className="flex items-center justify-between text-xs text-amber-400 font-bold">
-                    <span className="flex items-center gap-1">
-                      <Zap className="w-3.5 h-3.5 fill-current" /> {estimate.discountPercentage}% Multi-Day Discount:
-                    </span>
-                    <span className="font-black">-₹{estimate.totalSavings}</span>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-1 border-t border-slate-800">
-                  <div>
-                    <span className="text-xs uppercase font-bold text-slate-300">Total Pass Package</span>
-                    <p className="text-[10px] text-slate-400">Auto-deducted daily upon ride completion</p>
-                  </div>
-                  <span className="text-xl font-black text-emerald-400">₹{estimate.discountedPackageCost}</span>
-                </div>
-
-                <div className="bg-slate-900 p-2 rounded-xl border border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
-                  <span>Effective Daily Cost:</span>
-                  <strong className="text-amber-400 text-xs">₹{estimate.dailyEffectiveRate} / day</strong>
-                </div>
-
-                {/* Low Balance Warning */}
-                {estimate && walletBalance !== null && walletBalance < estimate.discountedPackageCost && (
-                  <div className="p-2.5 bg-amber-500/15 border border-amber-500/40 rounded-xl space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-amber-300 font-bold">Low Wallet Balance:</span>
-                      <span className="text-white font-mono">₹{walletBalance.toFixed(0)} / ₹{estimate.discountedPackageCost}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={onOpenWallet}
-                      className="w-full py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-lg shadow transition"
-                    >
-                      + Top Up Wallet Now
-                    </button>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleCreateSubscription}
-                  disabled={loading || (walletBalance !== null && walletBalance < estimate.discountedPackageCost)}
-                  className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Activating Pass...' : `Confirm & Activate Pass (₹${estimate.discountedPackageCost})`}
-                </button>
               </div>
-            )}
-          </div>
-
-          {/* Right Interactive Greater Noida Map */}
-          <div className="lg:col-span-7 flex flex-col gap-2 min-h-[440px]">
-            {/* Map Click Pin Mode Bar */}
-            <div className="bg-slate-900/90 p-1.5 rounded-xl border border-slate-700 flex items-center gap-1.5 text-xs shadow">
-              <span className="text-[10px] uppercase font-bold text-slate-400 pl-2">Map Click:</span>
-              <button
-                type="button"
-                onClick={() => setSelectingFor('pickup')}
-                className={`flex-1 py-1.5 rounded-lg font-bold flex items-center justify-center gap-1 transition ${
-                  selectingFor === 'pickup'
-                    ? 'bg-emerald-500 text-slate-950 shadow-md'
-                    : 'text-slate-400 hover:text-emerald-400'
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-300" />
-                <span>Sets Pickup</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectingFor('dropoff')}
-                className={`flex-1 py-1.5 rounded-lg font-bold flex items-center justify-center gap-1 transition ${
-                  selectingFor === 'dropoff'
-                    ? 'bg-rose-500 text-white shadow-md'
-                    : 'text-slate-400 hover:text-rose-400'
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full bg-rose-200" />
-                <span>Sets Destination</span>
-              </button>
-            </div>
-
-            {/* Quick Landmarks Bar */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-              <span className="text-[10px] uppercase font-bold text-slate-400 shrink-0">Places:</span>
-              {[
-                { name: 'Pari Chowk', lat: 28.4633, lng: 77.5082, emoji: '🚇' },
-                { name: 'Expo Mart', lat: 28.4570, lng: 77.5000, emoji: '🏛️' },
-                { name: 'Sharda Univ', lat: 28.4725, lng: 77.4833, emoji: '🎓' },
-                { name: 'Venice Mall', lat: 28.4529, lng: 77.5260, emoji: '🛍️' },
-                { name: 'Alpha 1', lat: 28.4709, lng: 77.5126, emoji: '🏢' },
-                { name: 'Gaur City', lat: 28.6054, lng: 77.4281, emoji: '🛍️' },
-                { name: 'GBU Campus', lat: 28.4239, lng: 77.5332, emoji: '🎓' },
-              ].map((p) => (
-                <button
-                  key={p.name}
-                  type="button"
-                  onClick={() => handleSelectPlace(p)}
-                  className="bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-amber-400/50 px-2 py-0.5 rounded-full text-[10px] text-slate-300 hover:text-white shrink-0 flex items-center gap-1 transition shadow"
-                >
-                  <span>{p.emoji}</span>
-                  <span>{p.name}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Map Canvas */}
-            <div className="flex-1 min-h-[400px]">
-              <MapComponent
-                center={{ lat: pickup.lat, lng: pickup.lng }}
-                pickup={pickup}
-                dropoff={dropoff}
-                routePolyline={estimate?.routePolyline}
-                onMapClick={handleMapClick}
-                onSelectPlace={handleSelectPlace}
-              />
             </div>
           </div>
+
+          {/* Map Picker Modal */}
+          <MapPickerModal
+            isOpen={isMapPickerOpen}
+            onClose={() => setIsMapPickerOpen(false)}
+            target={mapPickerTarget}
+            initialLocation={mapPickerTarget === 'pickup' ? pickup : dropoff}
+            onConfirmLocation={(loc, target) => {
+              if (target === 'pickup') {
+                setPickup(loc);
+              } else {
+                setDropoff(loc);
+              }
+            }}
+          />
         </div>
       )}
     </div>

@@ -18,20 +18,20 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenAuth, onOpenWallet, wall
   }, [user, walletUpdated]);
 
   return (
-    <header className="bg-slate-900/95 backdrop-blur border-b border-slate-800 sticky top-0 z-50 px-4 lg:px-8 py-3">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
+    <header className="bg-slate-900/95 backdrop-blur border-b border-slate-800 sticky top-0 z-50 px-2 sm:px-4 lg:px-8 py-2.5">
+      <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
         {/* Brand Logo */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/20 text-slate-950 font-black">
-            <Bike className="w-6 h-6" />
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/20 text-slate-950 font-black shrink-0">
+            <Bike className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-black tracking-tight text-white flex items-center gap-1.5">
-                RideSure <span className="text-xs bg-amber-400 text-slate-950 font-extrabold px-1.5 py-0.2 rounded">PRO</span>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1.5">
+                RideSure <span className="text-[10px] sm:text-xs bg-amber-400 text-slate-950 font-extrabold px-1.5 py-0.2 rounded">PRO</span>
               </h1>
             </div>
-            <p className="text-[11px] text-slate-400">On-Demand Rides & Daily Passes</p>
+            <p className="text-[10px] sm:text-[11px] text-slate-400 hidden sm:block">On-Demand & Daily Passes</p>
           </div>
         </div>
 
@@ -39,51 +39,51 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenAuth, onOpenWallet, wall
         <nav className="flex items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700/80">
           <button
             onClick={() => setActiveTab('rider')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
+            className={`px-2.5 sm:px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
               activeTab === 'rider'
                 ? 'bg-amber-400 text-slate-950 shadow-md'
                 : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
             }`}
           >
             <User className="w-3.5 h-3.5" />
-            <span>Rider Portal</span>
+            <span className="hidden xs:inline sm:inline">Rider</span>
           </button>
 
           <button
             onClick={() => setActiveTab('driver')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
+            className={`px-2.5 sm:px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
               activeTab === 'driver'
                 ? 'bg-amber-400 text-slate-950 shadow-md'
                 : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
             }`}
           >
             <Bike className="w-3.5 h-3.5" />
-            <span>Driver Partner</span>
+            <span className="hidden xs:inline sm:inline">Driver</span>
           </button>
 
           <button
             onClick={() => setActiveTab('admin')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
+            className={`px-2.5 sm:px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
               activeTab === 'admin'
                 ? 'bg-amber-400 text-slate-950 shadow-md'
                 : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
             }`}
           >
             <Shield className="w-3.5 h-3.5" />
-            <span>Admin Portal</span>
+            <span className="hidden xs:inline sm:inline">Admin</span>
           </button>
         </nav>
 
         {/* Right Section: Wallet & Role Switcher */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3">
           {/* Wallet Button */}
           {user && (
             <button
               onClick={onOpenWallet}
-              className="bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-400/50 px-3 py-1.5 rounded-xl text-xs font-bold text-white flex items-center gap-2 transition shadow"
+              className="bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-400/50 px-2 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 transition shadow"
             >
               <div className="p-1 bg-amber-400 text-slate-950 rounded-lg">
-                <WalletIcon className="w-3.5 h-3.5" />
+                <WalletIcon className="w-3 h-3" />
               </div>
               <span>₹{walletBalance !== null ? walletBalance.toFixed(0) : '0'}</span>
             </button>
@@ -91,8 +91,8 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenAuth, onOpenWallet, wall
 
           {/* Quick Demo Switcher */}
           <div className="relative group">
-            <button className="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-semibold text-amber-400 flex items-center gap-1.5 transition">
-              <span>⚡ Switch Role</span>
+            <button className="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold text-amber-400 flex items-center gap-1 transition">
+              <span>⚡ Switch</span>
               <ChevronDown className="w-3.5 h-3.5" />
             </button>
             <div className="absolute right-0 mt-1 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-xl py-1 hidden group-hover:block z-50">
@@ -140,11 +140,11 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenAuth, onOpenWallet, wall
 
           {/* User Account / Auth */}
           {user ? (
-            <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
-              <div className="w-6 h-6 rounded-full bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center">
+            <div className="flex items-center gap-1.5 bg-slate-800/80 px-2 sm:px-3 py-1.5 rounded-xl border border-slate-700">
+              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center">
                 {user.name?.[0]}
               </div>
-              <span className="text-xs font-semibold text-slate-200 max-w-[90px] truncate">{user.name}</span>
+              <span className="text-xs font-semibold text-slate-200 max-w-[70px] sm:max-w-[90px] truncate hidden xs:inline">{user.name}</span>
               <button
                 onClick={logout}
                 title="Logout"
@@ -156,7 +156,7 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenAuth, onOpenWallet, wall
           ) : (
             <button
               onClick={onOpenAuth}
-              className="bg-amber-400 hover:bg-amber-300 text-slate-950 px-4 py-1.5 rounded-xl text-xs font-bold shadow transition"
+              className="bg-amber-400 hover:bg-amber-300 text-slate-950 px-3 sm:px-4 py-1.5 rounded-xl text-xs font-bold shadow transition"
             >
               Sign In
             </button>

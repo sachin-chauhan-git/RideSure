@@ -152,14 +152,33 @@ export const MapComponent = ({
       });
 
       mapInstanceRef.current = map;
-    }
 
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
+      // Handle window and container resize smoothly
+      const handleResize = () => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize();
+        }
+      };
+
+      window.addEventListener('resize', handleResize);
+      setTimeout(handleResize, 250);
+
+      const resizeObserver = new ResizeObserver(() => {
+        handleResize();
+      });
+      if (mapContainerRef.current) {
+        resizeObserver.observe(mapContainerRef.current);
       }
-    };
+
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        resizeObserver.disconnect();
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove();
+          mapInstanceRef.current = null;
+        }
+      };
+    }
   }, []);
 
   // 2. Update Pickup, Dropoff, Driver, Nearby Drivers & Route

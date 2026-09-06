@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { wsService } from '../services/websocket';
 import { MapComponent } from './MapComponent';
+import { MapPickerModal } from './MapPickerModal';
 import { SubscriptionRiderTab } from './SubscriptionRiderTab';
-import { Bike, Car, Navigation, ShieldCheck, Clock, MapPin, AlertCircle, Phone, Star, CheckCircle2, Calendar, Sparkles } from 'lucide-react';
+import { Bike, Car, Navigation, ShieldCheck, Clock, MapPin, AlertCircle, Phone, Star, CheckCircle2, Calendar, Sparkles, Map as MapIcon, SlidersHorizontal } from 'lucide-react';
 
 const PRESET_LOCATIONS = [
   { name: 'Pari Chowk Metro Station', lat: 28.4633, lng: 77.5082 },
@@ -18,6 +19,9 @@ const PRESET_LOCATIONS = [
 
 export const RiderView = ({ user, onOpenWallet }) => {
   const [riderMode, setRiderMode] = useState('ondemand'); // 'ondemand' or 'subscription'
+  const [mobileTab, setMobileTab] = useState('booking'); // 'booking' or 'map'
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
+  const [mapPickerTarget, setMapPickerTarget] = useState('pickup');
   const [walletBalance, setWalletBalance] = useState(null);
   const [pickup, setPickup] = useState(PRESET_LOCATIONS[0]);
   const [dropoff, setDropoff] = useState(PRESET_LOCATIONS[1]);
@@ -300,394 +304,438 @@ export const RiderView = ({ user, onOpenWallet }) => {
 
       {/* Mode 2: Standard Instant On-Demand Ride View */}
       {riderMode === 'ondemand' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-9rem)]">
-          {/* Left Control / Booking Panel */}
-          <div className="lg:col-span-5 flex flex-col bg-slate-800/95 backdrop-blur rounded-2xl p-5 border border-slate-700/80 shadow-2xl overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-700">
-              <div>
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  <span>Book Instant Ride</span>
-                  <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-medium border border-amber-500/30">
-                    Live Nearby Drivers
-                  </span>
-                </h2>
-                <p className="text-xs text-slate-400">Sub-second dispatch with Redis Geo engine</p>
-              </div>
-            </div>
+        <div className="space-y-3">
+          {/* Mobile / Half-Screen View Tab Switcher (Visible on < lg) */}
+          <div className="flex lg:hidden items-center bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
+            <button
+              type="button"
+              onClick={() => setMobileTab('booking')}
+              className={`flex-1 py-2 rounded-lg font-bold flex items-center justify-center gap-1.5 transition ${
+                mobileTab === 'booking'
+                  ? 'bg-amber-400 text-slate-950 shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Ride Options & Booking</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab('map')}
+              className={`flex-1 py-2 rounded-lg font-bold flex items-center justify-center gap-1.5 transition ${
+                mobileTab === 'map'
+                  ? 'bg-amber-400 text-slate-950 shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <MapIcon className="w-3.5 h-3.5" />
+              <span>Interactive Map</span>
+            </button>
+          </div>
 
-            {error && (
-              <div className="mt-3 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* 1. ACTIVE TRIP IN PROGRESS SCREEN */}
-            {activeRide ? (
-              <div className="mt-4 space-y-4">
-                {/* Status Header */}
-                <div className="p-4 rounded-xl bg-slate-900 border border-slate-700 text-center relative overflow-hidden">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-amber-400 mb-1">
-                    Ride Status: {activeRide.status.replace(/_/g, ' ')}
-                  </div>
-
-                  {activeRide.status === 'SEARCHING' && (
-                    <div className="flex flex-col items-center py-3">
-                      <div className="w-16 h-16 rounded-full bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center radar-ping mb-2">
-                        <Bike className="w-8 h-8 text-amber-400 animate-pulse" />
-                      </div>
-                      <p className="text-sm font-semibold text-white">Contacting nearby drivers...</p>
-                      <p className="text-xs text-slate-400">Acceptance timeout in 20s</p>
-                    </div>
-                  )}
-
-                  {activeRide.status === 'ACCEPTED' && (
-                    <div className="py-2">
-                      <div className="text-emerald-400 font-bold text-lg flex items-center justify-center gap-2">
-                        <CheckCircle2 className="w-5 h-5" /> Driver On The Way!
-                      </div>
-                      <p className="text-xs text-slate-300">Driver is heading to your pickup location</p>
-                    </div>
-                  )}
-
-                  {activeRide.status === 'ARRIVED_AT_PICKUP' && (
-                    <div className="py-2">
-                      <div className="text-emerald-400 font-bold text-lg flex items-center justify-center gap-2">
-                        📍 Driver Has Arrived!
-                      </div>
-                      <p className="text-xs text-slate-300">Please board the vehicle and share your OTP</p>
-                    </div>
-                  )}
-
-                  {activeRide.status === 'IN_TRANSIT' && (
-                    <div className="py-2">
-                      <div className="text-cyan-400 font-bold text-lg flex items-center justify-center gap-2">
-                        🚀 Trip In Progress
-                      </div>
-                      <p className="text-xs text-slate-300">Navigating to destination: {activeRide.dropoffAddress}</p>
-                    </div>
-                  )}
-
-                  {activeRide.status === 'COMPLETED' && (
-                    <div className="py-2">
-                      <div className="text-emerald-400 font-bold text-lg flex items-center justify-center gap-2">
-                        🎉 Trip Completed!
-                      </div>
-                      <p className="text-sm text-slate-200 mt-1">Total Paid: ₹{activeRide.finalFare || activeRide.estimatedFare}</p>
-                    </div>
-                  )}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-[540px]">
+            {/* Left Control / Booking Panel */}
+            <div className={`lg:col-span-5 flex-col bg-slate-800/95 backdrop-blur rounded-2xl p-4 sm:p-5 border border-slate-700/80 shadow-2xl overflow-y-auto max-h-[700px] ${
+              mobileTab === 'booking' ? 'flex' : 'hidden lg:flex'
+            }`}>
+              <div className="flex items-center justify-between pb-3 border-b border-slate-700">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+                    <span>Book Instant Ride</span>
+                    <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-medium border border-amber-500/30">
+                      Live Dispatch
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-400">Redis Geo engine in Greater Noida</p>
                 </div>
+              </div>
 
-                {/* OTP Box */}
-                {activeRide.status !== 'COMPLETED' && (
-                  <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/40 rounded-xl p-4 flex items-center justify-between">
-                    <div>
-                      <span className="text-xs text-amber-300 uppercase font-bold tracking-wider">Start Ride OTP</span>
-                      <p className="text-2xl font-black text-white tracking-widest">{activeRide.otp}</p>
-                    </div>
-                    <div className="text-right text-xs text-slate-300 max-w-[150px]">
-                      Share this OTP with driver only after boarding
-                    </div>
-                  </div>
-                )}
+              {error && (
+                <div className="mt-3 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
 
-                {/* Driver Details Card */}
-                {activeRide.driverName && (
-                  <div className="bg-slate-900/90 rounded-xl p-4 border border-slate-700 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-amber-400 text-slate-950 font-bold flex items-center justify-center text-lg shadow">
-                          {activeRide.driverName[0]}
+              {/* 1. ACTIVE TRIP IN PROGRESS SCREEN */}
+              {activeRide ? (
+                <div className="mt-4 space-y-4">
+                  {/* Status Header */}
+                  <div className="p-4 rounded-xl bg-slate-900 border border-slate-700 text-center relative overflow-hidden">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-amber-400 mb-1">
+                      Ride Status: {activeRide.status.replace(/_/g, ' ')}
+                    </div>
+
+                    {activeRide.status === 'SEARCHING' && (
+                      <div className="flex flex-col items-center py-3">
+                        <div className="w-16 h-16 rounded-full bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center radar-ping mb-2">
+                          <Bike className="w-8 h-8 text-amber-400 animate-pulse" />
                         </div>
-                        <div>
-                          <h4 className="font-bold text-white text-base">{activeRide.driverName}</h4>
-                          <div className="flex items-center gap-2 text-xs text-slate-400">
-                            <span className="flex items-center text-amber-400">
-                              <Star className="w-3.5 h-3.5 fill-current mr-0.5" />
-                              {activeRide.driverRating || '4.9'}
-                            </span>
-                            <span>•</span>
-                            <span>{activeRide.vehicleModel || 'Vehicle'}</span>
-                          </div>
-                        </div>
+                        <p className="text-sm font-semibold text-white">Contacting nearby drivers...</p>
+                        <p className="text-xs text-slate-400">Acceptance timeout in 20s</p>
                       </div>
-                      <div className="text-right">
-                        <span className="bg-slate-800 border border-slate-600 text-slate-200 text-xs px-2.5 py-1 rounded font-mono font-bold">
-                          {activeRide.vehicleNumber || 'KA-01-AB-1234'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Route Summary */}
-                <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-700 text-xs space-y-2">
-                  <div className="flex items-start gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1" />
-                    <div>
-                      <span className="text-slate-400">Pickup:</span> <span className="text-slate-200">{activeRide.pickupAddress}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <div className="w-2 h-2 rounded-full bg-rose-400 mt-1" />
-                    <div>
-                      <span className="text-slate-400">Destination:</span> <span className="text-slate-200">{activeRide.dropoffAddress}</span>
-                    </div>
-                  </div>
-                  <div className="pt-2 border-t border-slate-800 flex justify-between font-semibold">
-                    <span className="text-slate-400">Estimated Fare:</span>
-                    <span className="text-amber-400 text-sm">₹{activeRide.estimatedFare}</span>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                {activeRide.status !== 'COMPLETED' ? (
-                  <button
-                    onClick={handleCancelRide}
-                    className="w-full py-2.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-semibold transition"
-                  >
-                    Cancel Ride
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setActiveRide(null)}
-                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg transition"
-                  >
-                    Book Another Ride
-                  </button>
-                )}
-              </div>
-            ) : (
-              /* 2. BOOKING / SEARCH SCREEN */
-              <div className="mt-4 space-y-4 flex-1 flex flex-col justify-between">
-                <div className="space-y-3">
-                  {/* Map Pin Selector Mode Bar */}
-                  <div className="bg-slate-900/90 p-1.5 rounded-xl border border-slate-700 flex items-center gap-1.5 text-xs">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 pl-2">Map Click:</span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectingFor('pickup')}
-                      className={`flex-1 py-1.5 rounded-lg font-bold flex items-center justify-center gap-1 transition ${
-                        selectingFor === 'pickup'
-                          ? 'bg-emerald-500 text-slate-950 shadow-md'
-                          : 'text-slate-400 hover:text-emerald-400'
-                      }`}
-                    >
-                      <span className="w-2 h-2 rounded-full bg-emerald-300" />
-                      <span>Sets Pickup</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectingFor('dropoff')}
-                      className={`flex-1 py-1.5 rounded-lg font-bold flex items-center justify-center gap-1 transition ${
-                        selectingFor === 'dropoff'
-                          ? 'bg-rose-500 text-white shadow-md'
-                          : 'text-slate-400 hover:text-rose-400'
-                      }`}
-                    >
-                      <span className="w-2 h-2 rounded-full bg-rose-200" />
-                      <span>Sets Destination</span>
-                    </button>
-                  </div>
-
-                  {/* Pickup location */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-300 flex items-center justify-between mb-1">
-                      <span className="flex items-center gap-1.5 text-emerald-400">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400" /> Pickup Location
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setSelectingFor('pickup')}
-                        className={`text-[10px] px-2 py-0.5 rounded border transition ${
-                          selectingFor === 'pickup' ? 'bg-emerald-500/30 border-emerald-400 text-emerald-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'
-                        }`}
-                      >
-                        {selectingFor === 'pickup' ? '● Ready to click map' : 'Click map to set'}
-                      </button>
-                    </label>
-                    <select
-                      value={pickup.name}
-                      onChange={(e) => {
-                        const loc = PRESET_LOCATIONS.find((l) => l.name === e.target.value);
-                        if (loc) setPickup(loc);
-                      }}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
-                    >
-                      {PRESET_LOCATIONS.map((loc) => (
-                        <option key={loc.name} value={loc.name}>
-                          {loc.name}
-                        </option>
-                      ))}
-                      {!PRESET_LOCATIONS.some((l) => l.name === pickup.name) && (
-                        <option value={pickup.name}>{pickup.name}</option>
-                      )}
-                    </select>
-                  </div>
-
-                  {/* Destination location */}
-                  <div>
-                    <label className="text-xs font-semibold text-slate-300 flex items-center justify-between mb-1">
-                      <span className="flex items-center gap-1.5 text-rose-400">
-                        <span className="w-2 h-2 rounded-full bg-rose-400" /> Where to? (Destination)
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setSelectingFor('dropoff')}
-                        className={`text-[10px] px-2 py-0.5 rounded border transition ${
-                          selectingFor === 'dropoff' ? 'bg-rose-500/30 border-rose-400 text-rose-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'
-                        }`}
-                      >
-                        {selectingFor === 'dropoff' ? '● Ready to click map' : 'Click map to set'}
-                      </button>
-                    </label>
-                    <select
-                      value={dropoff.name}
-                      onChange={(e) => {
-                        const loc = PRESET_LOCATIONS.find((l) => l.name === e.target.value);
-                        if (loc) setDropoff(loc);
-                      }}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-rose-500"
-                    >
-                      {PRESET_LOCATIONS.map((loc) => (
-                        <option key={loc.name} value={loc.name}>
-                          {loc.name}
-                        </option>
-                      ))}
-                      {!PRESET_LOCATIONS.some((l) => l.name === dropoff.name) && (
-                        <option value={dropoff.name}>{dropoff.name}</option>
-                      )}
-                    </select>
-                  </div>
-
-                  {/* Route Metric Summary */}
-                  {estimate && (
-                    <div className="flex items-center justify-between bg-slate-900/80 px-3 py-2 rounded-xl border border-slate-700 text-xs text-slate-300">
-                      <span className="flex items-center gap-1">
-                        <Navigation className="w-3.5 h-3.5 text-sky-400" />
-                        <strong>{estimate.distanceKm} km</strong>
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-amber-400" />
-                        <strong>~{estimate.durationMinutes} mins</strong>
-                      </span>
-                      <span className="text-emerald-400 font-medium">Fastest Route</span>
-                    </div>
-                  )}
-
-                  {/* Ride Options / Tier Selector */}
-                  <div className="space-y-2 pt-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Select Vehicle Option</span>
-
-                    <div className="space-y-2">
-                      {estimate?.tiers.map((tier) => {
-                        const isSelected = selectedTier === tier.vehicleType;
-                        return (
-                          <div
-                            key={tier.vehicleType}
-                            onClick={() => setSelectedTier(tier.vehicleType)}
-                            className={`flex items-center justify-between p-3 rounded-xl cursor-pointer border transition-all ${
-                              isSelected
-                                ? 'bg-amber-500/15 border-amber-400 shadow-md ring-1 ring-amber-400/50'
-                                : 'bg-slate-900/60 border-slate-700/80 hover:bg-slate-900 hover:border-slate-600'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 rounded-lg bg-slate-800 border border-slate-700">
-                                {getVehicleIcon(tier.vehicleType)}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <h4 className="font-bold text-white text-sm">{tier.displayName}</h4>
-                                  <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">
-                                    {tier.capacity} {tier.capacity === 1 ? 'seat' : 'seats'}
-                                  </span>
-                                </div>
-                                <p className="text-xs text-slate-400">ETA {tier.etaMinutes} mins away</p>
-                              </div>
-                            </div>
-
-                            <div className="text-right">
-                              <div className="text-base font-black text-amber-400">₹{tier.fare}</div>
-                              {tier.surgeMultiplier > 1.0 && (
-                                <span className="text-[10px] text-orange-400 font-medium">⚡ {tier.surgeMultiplier}x Surge</span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bottom Book Button */}
-                <div className="pt-4 border-t border-slate-700">
-                  <button
-                    onClick={handleBookRide}
-                    disabled={loading || !estimate}
-                    className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-base rounded-xl shadow-lg transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {loading ? (
-                      <span>Calculating Route...</span>
-                    ) : (
-                      <>
-                        <span>Book {selectedTier === 'BIKE' ? 'Rapido Bike' : 'Ride'} Now</span>
-                        <span>•</span>
-                        <span>
-                          ₹{estimate?.tiers.find((t) => t.vehicleType === selectedTier)?.fare || '0'}
-                        </span>
-                      </>
                     )}
+
+                    {activeRide.status === 'ACCEPTED' && (
+                      <div className="py-2">
+                        <div className="text-emerald-400 font-bold text-lg flex items-center justify-center gap-2">
+                          <CheckCircle2 className="w-5 h-5" /> Driver On The Way!
+                        </div>
+                        <p className="text-xs text-slate-300">Driver is heading to your pickup location</p>
+                      </div>
+                    )}
+
+                    {activeRide.status === 'ARRIVED_AT_PICKUP' && (
+                      <div className="py-2">
+                        <div className="text-emerald-400 font-bold text-lg flex items-center justify-center gap-2">
+                          📍 Driver Has Arrived!
+                        </div>
+                        <p className="text-xs text-slate-300">Please board the vehicle and share your OTP</p>
+                      </div>
+                    )}
+
+                    {activeRide.status === 'IN_TRANSIT' && (
+                      <div className="py-2">
+                        <div className="text-cyan-400 font-bold text-lg flex items-center justify-center gap-2">
+                          🚀 Trip In Progress
+                        </div>
+                        <p className="text-xs text-slate-300">Navigating to destination: {activeRide.dropoffAddress}</p>
+                      </div>
+                    )}
+
+                    {activeRide.status === 'COMPLETED' && (
+                      <div className="py-2">
+                        <div className="text-emerald-400 font-bold text-lg flex items-center justify-center gap-2">
+                          🎉 Trip Completed!
+                        </div>
+                        <p className="text-sm text-slate-200 mt-1">Total Paid: ₹{activeRide.finalFare || activeRide.estimatedFare}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* OTP Box */}
+                  {activeRide.status !== 'COMPLETED' && (
+                    <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/40 rounded-xl p-4 flex items-center justify-between">
+                      <div>
+                        <span className="text-xs text-amber-300 uppercase font-bold tracking-wider">Start Ride OTP</span>
+                        <p className="text-2xl font-black text-white tracking-widest">{activeRide.otp}</p>
+                      </div>
+                      <div className="text-right text-xs text-slate-300 max-w-[150px]">
+                        Share this OTP with driver only after boarding
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Driver Details Card */}
+                  {activeRide.driverName && (
+                    <div className="bg-slate-900/90 rounded-xl p-4 border border-slate-700 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-full bg-amber-400 text-slate-950 font-bold flex items-center justify-center text-lg shadow">
+                            {activeRide.driverName[0]}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-white text-base">{activeRide.driverName}</h4>
+                            <div className="flex items-center gap-2 text-xs text-slate-400">
+                              <span className="flex items-center text-amber-400">
+                                <Star className="w-3.5 h-3.5 fill-current mr-0.5" />
+                                {activeRide.driverRating || '4.9'}
+                              </span>
+                              <span>•</span>
+                              <span>{activeRide.vehicleModel || 'Vehicle'}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="bg-slate-800 border border-slate-600 text-slate-200 text-xs px-2.5 py-1 rounded font-mono font-bold">
+                            {activeRide.vehicleNumber || 'KA-01-AB-1234'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Route Summary */}
+                  <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-700 text-xs space-y-2">
+                    <div className="flex items-start gap-2">
+                      <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1" />
+                      <div>
+                        <span className="text-slate-400">Pickup:</span> <span className="text-slate-200">{activeRide.pickupAddress}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-2 h-2 rounded-full bg-rose-400 mt-1" />
+                      <div>
+                        <span className="text-slate-400">Destination:</span> <span className="text-slate-200">{activeRide.dropoffAddress}</span>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-slate-800 flex justify-between font-semibold">
+                      <span className="text-slate-400">Estimated Fare:</span>
+                      <span className="text-amber-400 text-sm">₹{activeRide.estimatedFare}</span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  {activeRide.status !== 'COMPLETED' ? (
+                    <button
+                      onClick={handleCancelRide}
+                      className="w-full py-2.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-semibold transition"
+                    >
+                      Cancel Ride
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setActiveRide(null)}
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg transition"
+                    >
+                      Book Another Ride
+                    </button>
+                  )}
+                </div>
+              ) : (
+                /* 2. BOOKING / SEARCH SCREEN */
+                <div className="mt-3 space-y-4 flex-1 flex flex-col justify-between">
+                  <div className="space-y-3">
+                    {/* Pickup location */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-semibold flex items-center gap-1.5 text-emerald-400">
+                          <MapPin className="w-3.5 h-3.5" /> Pickup Location
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMapPickerTarget('pickup');
+                            setIsMapPickerOpen(true);
+                          }}
+                          className="text-[11px] px-2.5 py-1 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 rounded-lg font-bold flex items-center gap-1 transition"
+                        >
+                          <MapIcon className="w-3 h-3" /> Select on Map
+                        </button>
+                      </div>
+                      <select
+                        value={pickup.name}
+                        onChange={(e) => {
+                          const loc = PRESET_LOCATIONS.find((l) => l.name === e.target.value);
+                          if (loc) setPickup(loc);
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+                      >
+                        {PRESET_LOCATIONS.map((loc) => (
+                          <option key={loc.name} value={loc.name}>
+                            {loc.name}
+                          </option>
+                        ))}
+                        {!PRESET_LOCATIONS.some((l) => l.name === pickup.name) && (
+                          <option value={pickup.name}>{pickup.name}</option>
+                        )}
+                      </select>
+                    </div>
+
+                    {/* Destination location */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-semibold flex items-center gap-1.5 text-rose-400">
+                          <Navigation className="w-3.5 h-3.5" /> Destination (Where to?)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMapPickerTarget('dropoff');
+                            setIsMapPickerOpen(true);
+                          }}
+                          className="text-[11px] px-2.5 py-1 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/40 rounded-lg font-bold flex items-center gap-1 transition"
+                        >
+                          <MapIcon className="w-3 h-3" /> Select on Map
+                        </button>
+                      </div>
+                      <select
+                        value={dropoff.name}
+                        onChange={(e) => {
+                          const loc = PRESET_LOCATIONS.find((l) => l.name === e.target.value);
+                          if (loc) setDropoff(loc);
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-rose-500"
+                      >
+                        {PRESET_LOCATIONS.map((loc) => (
+                          <option key={loc.name} value={loc.name}>
+                            {loc.name}
+                          </option>
+                        ))}
+                        {!PRESET_LOCATIONS.some((l) => l.name === dropoff.name) && (
+                          <option value={dropoff.name}>{dropoff.name}</option>
+                        )}
+                      </select>
+                    </div>
+
+                    {/* Route Metric Summary */}
+                    {estimate && (
+                      <div className="flex items-center justify-between bg-slate-900/80 px-3 py-2 rounded-xl border border-slate-700 text-xs text-slate-300">
+                        <span className="flex items-center gap-1">
+                          <Navigation className="w-3.5 h-3.5 text-sky-400" />
+                          <strong>{estimate.distanceKm} km</strong>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-amber-400" />
+                          <strong>~{estimate.durationMinutes} mins</strong>
+                        </span>
+                        <span className="text-emerald-400 font-medium">Fastest Route</span>
+                      </div>
+                    )}
+
+                    {/* Ride Options / Tier Selector */}
+                    <div className="space-y-2 pt-1">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Select Vehicle Option</span>
+
+                      <div className="space-y-2">
+                        {estimate?.tiers.map((tier) => {
+                          const isSelected = selectedTier === tier.vehicleType;
+                          return (
+                            <div
+                              key={tier.vehicleType}
+                              onClick={() => setSelectedTier(tier.vehicleType)}
+                              className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl cursor-pointer border transition-all ${
+                                isSelected
+                                  ? 'bg-amber-500/15 border-amber-400 shadow-md ring-1 ring-amber-400/50'
+                                  : 'bg-slate-900/60 border-slate-700/80 hover:bg-slate-900 hover:border-slate-600'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 sm:gap-3">
+                                <div className="p-2 rounded-lg bg-slate-800 border border-slate-700 shrink-0">
+                                  {getVehicleIcon(tier.vehicleType)}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="font-bold text-white text-xs sm:text-sm">{tier.displayName}</h4>
+                                    <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">
+                                      {tier.capacity} seat
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-400">ETA {tier.etaMinutes} mins away</p>
+                                </div>
+                              </div>
+
+                              <div className="text-right shrink-0">
+                                <div className="text-sm sm:text-base font-black text-amber-400">₹{tier.fare}</div>
+                                {tier.surgeMultiplier > 1.0 && (
+                                  <span className="text-[10px] text-orange-400 font-medium">⚡ {tier.surgeMultiplier}x Surge</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom Book Button */}
+                  <div className="pt-3 border-t border-slate-700 space-y-2">
+                    <button
+                      onClick={handleBookRide}
+                      disabled={loading || !estimate}
+                      className="w-full py-3 sm:py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-sm sm:text-base rounded-xl shadow-lg transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {loading ? (
+                        <span>Calculating Route...</span>
+                      ) : (
+                        <>
+                          <span>Book {selectedTier === 'BIKE' ? 'Rapido Bike' : 'Ride'} Now</span>
+                          <span>•</span>
+                          <span>
+                            ₹{estimate?.tiers.find((t) => t.vehicleType === selectedTier)?.fare || '0'}
+                          </span>
+                        </>
+                      )}
+                    </button>
+
+                    {/* View on Map helper button for mobile */}
+                    <button
+                      type="button"
+                      onClick={() => setMobileTab('map')}
+                      className="w-full lg:hidden py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                    >
+                      <MapIcon className="w-3.5 h-3.5 text-amber-400" />
+                      <span>View Route on Live Map</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right Map Canvas */}
+            <div className={`lg:col-span-7 flex-col gap-2 min-h-[420px] ${
+              mobileTab === 'map' ? 'flex' : 'hidden lg:flex'
+            }`}>
+              {/* Quick Landmarks Horizontal Bar */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+                <span className="text-[10px] uppercase font-bold text-slate-400 shrink-0">Popular:</span>
+                {[
+                  { name: 'Pari Chowk', lat: 28.4633, lng: 77.5082, emoji: '🚇' },
+                  { name: 'Expo Mart', lat: 28.4570, lng: 77.5000, emoji: '🏛️' },
+                  { name: 'Sharda Univ', lat: 28.4725, lng: 77.4833, emoji: '🎓' },
+                  { name: 'Venice Mall', lat: 28.4529, lng: 77.5260, emoji: '🛍️' },
+                  { name: 'Alpha 1', lat: 28.4709, lng: 77.5126, emoji: '🏢' },
+                  { name: 'Gaur City', lat: 28.6054, lng: 77.4281, emoji: '🛍️' },
+                  { name: 'GBU Campus', lat: 28.4239, lng: 77.5332, emoji: '🎓' },
+                  { name: 'Yatharth Hosp', lat: 28.4700, lng: 77.4870, emoji: '🏥' },
+                ].map((p) => (
+                  <button
+                    key={p.name}
+                    type="button"
+                    onClick={() => handleSelectPlace(p)}
+                    className="bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-amber-400/50 px-2.5 py-1 rounded-full text-[11px] text-slate-300 hover:text-white shrink-0 flex items-center gap-1 transition shadow"
+                  >
+                    <span>{p.emoji}</span>
+                    <span>{p.name}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex-1 min-h-[380px] relative">
+                <MapComponent
+                  center={{ lat: pickup.lat, lng: pickup.lng }}
+                  pickup={pickup}
+                  dropoff={dropoff}
+                  driver={
+                    activeRide?.driverLat && activeRide?.driverLng
+                      ? { lat: activeRide.driverLat, lng: activeRide.driverLng, name: activeRide.driverName, vehicleType: activeRide.vehicleType }
+                      : null
+                  }
+                  nearbyDrivers={nearbyDrivers}
+                  routePolyline={estimate?.routePolyline || activeRide?.routePolyline}
+                  onMapClick={handleMapClick}
+                  onSelectPlace={handleSelectPlace}
+                />
+
+                {/* Back to Booking floating pill on mobile */}
+                <div className="absolute bottom-3 left-3 right-3 lg:hidden z-[1000]">
+                  <button
+                    type="button"
+                    onClick={() => setMobileTab('booking')}
+                    className="w-full py-2.5 bg-slate-900/95 backdrop-blur border border-amber-400/60 text-amber-400 font-bold text-xs rounded-xl shadow-2xl flex items-center justify-center gap-2"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>Back to Booking Details (₹{estimate?.tiers.find((t) => t.vehicleType === selectedTier)?.fare || '0'})</span>
                   </button>
                 </div>
               </div>
-            )}
-          </div>
-
-          {/* Right Map Canvas */}
-          <div className="lg:col-span-7 h-full min-h-[400px] flex flex-col gap-2">
-            {/* Quick Landmarks Horizontal Bar */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-              <span className="text-[10px] uppercase font-bold text-slate-400 shrink-0">Popular:</span>
-              {[
-                { name: 'Pari Chowk', lat: 28.4633, lng: 77.5082, emoji: '🚇' },
-                { name: 'Expo Mart', lat: 28.4570, lng: 77.5000, emoji: '🏛️' },
-                { name: 'Sharda Univ', lat: 28.4725, lng: 77.4833, emoji: '🎓' },
-                { name: 'Venice Mall', lat: 28.4529, lng: 77.5260, emoji: '🛍️' },
-                { name: 'Alpha 1', lat: 28.4709, lng: 77.5126, emoji: '🏢' },
-                { name: 'Gaur City', lat: 28.6054, lng: 77.4281, emoji: '🛍️' },
-                { name: 'GBU Campus', lat: 28.4239, lng: 77.5332, emoji: '🎓' },
-                { name: 'Yatharth Hosp', lat: 28.4700, lng: 77.4870, emoji: '🏥' },
-              ].map((p) => (
-                <button
-                  key={p.name}
-                  type="button"
-                  onClick={() => handleSelectPlace(p)}
-                  className="bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-amber-400/50 px-2.5 py-1 rounded-full text-[11px] text-slate-300 hover:text-white shrink-0 flex items-center gap-1 transition shadow"
-                >
-                  <span>{p.emoji}</span>
-                  <span>{p.name}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="flex-1 min-h-[380px]">
-              <MapComponent
-                center={{ lat: pickup.lat, lng: pickup.lng }}
-                pickup={pickup}
-                dropoff={dropoff}
-                driver={
-                  activeRide?.driverLat && activeRide?.driverLng
-                    ? { lat: activeRide.driverLat, lng: activeRide.driverLng, name: activeRide.driverName, vehicleType: activeRide.vehicleType }
-                    : null
-                }
-                nearbyDrivers={nearbyDrivers}
-                routePolyline={estimate?.routePolyline || activeRide?.routePolyline}
-                onMapClick={handleMapClick}
-                onSelectPlace={handleSelectPlace}
-              />
             </div>
           </div>
+
+          {/* Map Picker Modal for mobile & precision pin placement */}
+          <MapPickerModal
+            isOpen={isMapPickerOpen}
+            onClose={() => setIsMapPickerOpen(false)}
+            target={mapPickerTarget}
+            initialLocation={mapPickerTarget === 'pickup' ? pickup : dropoff}
+            onConfirmLocation={(loc, target) => {
+              if (target === 'pickup') {
+                setPickup(loc);
+              } else {
+                setDropoff(loc);
+              }
+            }}
+          />
         </div>
       )}
     </div>
