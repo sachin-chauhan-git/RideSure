@@ -104,11 +104,12 @@ export const MapComponent = ({
         zoomControl: false,
       });
 
-      // Sleek Dark-Mode CartoDB Map Tiles
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-        subdomains: 'abcd',
+      // Clean Dark-Mode OpenStreetMap Map Tiles (100% Free, No Watermark)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        subdomains: 'abc',
         maxZoom: 19,
+        className: 'map-tiles-dark',
       }).addTo(map);
 
       L.control.zoom({ position: 'bottomright' }).addTo(map);

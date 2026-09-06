@@ -9,6 +9,15 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Dark mode filter for Leaflet OpenStreetMap tiles (No Watermark & Free) */
+.map-tiles-dark {
+  filter: invert(100%) hue-rotate(180deg) brightness(88%) contrast(95%);
+}
+
+.leaflet-container {
+  background-color: #020617 !important;
+}
+
 /* Pulse radar animation */
 @keyframes radar-pulse {
   0% {
