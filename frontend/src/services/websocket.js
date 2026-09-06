@@ -12,9 +12,8 @@ class WebSocketService {
   connect() {
     if (this.client && this.connected) return;
 
-    const wsEndpoint = import.meta.env.VITE_API_URL
-      ? `${import.meta.env.VITE_API_URL}/ws-ride`
-      : '/ws-ride';
+    const rawApiUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/+$/, '') : '';
+    const wsEndpoint = rawApiUrl ? `${rawApiUrl}/ws-ride` : '/ws-ride';
 
     const socketFactory = () => new SockJS(wsEndpoint);
 

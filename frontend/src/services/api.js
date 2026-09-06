@@ -1,4 +1,5 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
+const rawApiUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/+$/, '') : '';
+const API_BASE_URL = rawApiUrl ? `${rawApiUrl}/api` : '/api';
 
 export const getAuthToken = () => localStorage.getItem('ridehail_token');
 export const setAuthToken = (token) => localStorage.setItem('ridehail_token', token);
